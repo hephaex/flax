@@ -80,17 +80,6 @@ class CNN(nn.Module):
     return x
 
 
-def create_model(key):
-  _, model = CNN.create_by_shape(key, [((1, 28, 28, 1), jnp.float32)])
-  return model
-
-
-def create_optimizer(model, learning_rate, beta):
-  optimizer_def = optim.Momentum(learning_rate=learning_rate, beta=beta)
-  optimizer = optimizer_def.create(model)
-  return optimizer
-
-
 def onehot(labels, num_classes=10):
   x = (labels[..., None] == jnp.arange(num_classes)[None])
   return x.astype(jnp.float32)
@@ -170,13 +159,20 @@ def get_datasets():
 
 def train(train_ds, test_ds):
   """Train MNIST to completion."""
-  rng = random.PRNGKey(0)
-
   batch_size = FLAGS.batch_size
   num_epochs = FLAGS.num_epochs
 
-  model = create_model(rng)
-  optimizer = create_optimizer(model, FLAGS.learning_rate, FLAGS.momentum)
+  _, initial_params = CNN.init_by_shape(
+      random.PRNGKey(0), [((1, 28, 28, 1), jnp.float32)])
+# The below didn't work. I was able to figure out how to use
+# new_instance() instead but it's a bit odd...
+#
+#  model = nn.Model(CNN(), initial_params)
+  model = nn.Model(CNN.new_instance(), initial_params)
+
+  optimizer_def = optim.Momentum(
+      learning_rate=FLAGS.learning_rate, beta=FLAGS.momentum)
+  optimizer = optimizer_def.create(model)
 
   input_rng = onp.random.RandomState(0)
 
